@@ -379,7 +379,7 @@ class GaussianDiffusion:
 
     def p_sample(
         self, model, x, cond_top, struc, well, well_loc, well_loc_index, t, 
-        scale_factor=None, weight_t=None, clip_denoised=True, denoised_fn=None, model_kwargs=None
+        scale_factor=None, clip_denoised=True, denoised_fn=None, model_kwargs=None
     ):
         """
         Sample x_{t-1} from the model at the given timestep.
@@ -426,7 +426,7 @@ class GaussianDiffusion:
         # use well guidance
         if scale_factor is not None:
             cond_grad, _ = self.well_guidance(sample, well, well_loc_index)
-            sample = sample - 0.5 * scale_factor * math.sqrt(weight_t) *  cond_grad
+            sample = sample - scale_factor * th.exp(0.5 * out["log_variance"]) *  cond_grad
             loss_after = self.well_loss(sample, well, well_loc_index)
 
         if (t[0].item() + 1) % 5 == 0 or t[0].item() == 0:
@@ -528,7 +528,6 @@ class GaussianDiffusion:
         loss_after = []
         for i in indices:
             t = th.tensor([i] * shape[0], device=device)
-            weight_t = self.alphas_cumprod[self.num_timesteps-i-1]
             with th.no_grad():
                 out = self.p_sample(
                     model,
@@ -536,7 +535,6 @@ class GaussianDiffusion:
                     cond_top, struc, well, well_loc, well_loc_index,
                     t,
                     scale_factor=scale_factor,
-                    weight_t=weight_t,
                     clip_denoised=clip_denoised,
                     denoised_fn=denoised_fn,
                     model_kwargs=model_kwargs,
@@ -555,7 +553,7 @@ class GaussianDiffusion:
         x,
         cond_top, struc, well, well_loc, well_loc_index,
         t,
-        scale_factor=None, weight_t=None, 
+        scale_factor=None,
         clip_denoised=True,
         denoised_fn=None,
         model_kwargs=None,
@@ -605,7 +603,7 @@ class GaussianDiffusion:
         # use well guidance
         if scale_factor is not None:
             cond_grad, _ = self.well_guidance(sample, well, well_loc_index)
-            sample = sample - 0.5 * scale_factor * math.sqrt(weight_t) *  cond_grad
+            sample = sample - scale_factor * th.exp(0.5 * out["log_variance"]) * cond_grad
             loss_after = self.well_loss(sample, well, well_loc_index)
 
         if (t[0].item() + 1) % 5 == 0 or t[0].item() == 0:
@@ -690,7 +688,6 @@ class GaussianDiffusion:
         loss_after = []
         for i in indices:
             t = th.tensor([i] * shape[0], device=device)
-            weight_t = self.alphas_cumprod[self.num_timesteps-i-1]
             with th.no_grad():
                 out = self.ddim_sample(
                         model,
@@ -698,7 +695,6 @@ class GaussianDiffusion:
                         cond_top, struc, well, well_loc, well_loc_index,
                         t,
                         scale_factor=scale_factor,
-                        weight_t=weight_t,
                         clip_denoised=clip_denoised,
                         denoised_fn=denoised_fn,
                         model_kwargs=model_kwargs,
