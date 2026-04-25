@@ -16,6 +16,7 @@
 This repository is organized as follows:
 
 * :open_file_folder: **diffvmb**: python library containing all codes;
+* :open_file_folder: **logo**: folder containing logo;
 * :open_file_folder: **dataset**: folder to store dataset;
 
 ## Supplementary files
