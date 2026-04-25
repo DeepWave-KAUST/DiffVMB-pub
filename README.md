@@ -1,6 +1,16 @@
-Reproducible material for **DW0100: Shallow-to-deep velocity model building via diffusion models - Shijun Cheng, Randy Harsuko, Tariq Alkhalifah**
+![LOGO](https://github.com/DeepWave-Kaust/DiffVMB-pub/blob/main/logo/logo.jpg)
 
-[Click here](https://kaust.sharepoint.com/:f:/r/sites/M365_Deepwave_Documents/Shared%20Documents/Restricted%20Area/REPORTS/DW0100?csf=1&web=1&e=G9Lj1h) to access the Project Report. Authentication to the _Restricted Area_ filespace is required.
+<div align="center">
+
+<h3><strong>Shallow-to-deep velocity model building via diffusion models</strong></h2>
+
+<h4>Shijun Cheng, Randy Harsuko, Tariq Alkhalifah</h3>
+
+<h4><em>DeepWave Consortium, King Abdullah University of Science and Technology (KAUST)</em></h4>
+
+<p><em>Corresponding author: Shijun Cheng (<a href="mailto:sjcheng.academic@gmail.com">sjcheng.academic@gmail.com</a>)</em></p>
+
+</div>
 
 # Project structure
 This repository is organized as follows:
