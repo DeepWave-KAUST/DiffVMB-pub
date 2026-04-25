@@ -9,7 +9,7 @@ from scipy.io import loadmat
 
 
 def load_data(
-    *, data_dir, batch_size, depth_size, width_size, device, class_cond=False, deterministic=False
+    *, data_dir, batch_size, depth_size, device, class_cond=False, deterministic=False
 ):
     """
     Create an infinite generator over (velocity_model, conditioning_info, ...) batches.
@@ -40,7 +40,6 @@ def load_data(
     dataset = BasicDataset(
         data_dir,           # NOTE: passes the directory path, not the file list;
         depth_size,         #       BasicDataset re-scans internally (see its __init__)
-        width_size,
         class_cond=class_cond,
     )
 
@@ -164,7 +163,7 @@ class BasicDataset(Dataset):
     and 'ref' (reflectivity, same shape).
     """
 
-    def __init__(self, paths, depth_size, width_size=None, class_cond=False):
+    def __init__(self, paths, depth_size, class_cond=False):
         # NOTE: 'paths' here receives the data_dir string from load_data(),
         #       not a pre-built file list. The dataset re-scans via
         #       _list_image_files_recursively internally.

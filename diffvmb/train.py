@@ -59,7 +59,6 @@ def main():
         data_dir=args.data_dir,
         batch_size=args.batch_size,
         depth_size=args.depth_size,
-        width_size=args.width_size,
         device=device,
         class_cond=args.class_cond,
     )
@@ -71,7 +70,6 @@ def main():
         diffusion=diffusion,
         data=data,
         batch_size=args.batch_size,
-        microbatch=args.microbatch,
         lr=args.lr,
         ema_rate=args.ema_rate,
         log_interval=args.log_interval,
@@ -93,13 +91,12 @@ def create_argparser():
     """
     # Default hyperparameters and paths
     defaults = dict(
-        data_dir="../dataset/train/",    # Path to training data
+        data_dir="../../../dataset/realmodel4/train/",    # Path to training data
         schedule_sampler="uniform",      # Type of timestep sampler (uniform or loss-aware)
         lr=1e-4,                         # Learning rate
         weight_decay=0.0,                # Weight decay for optimizer
         lr_anneal_steps=0,               # Steps for learning rate annealing
         batch_size=48,                   # Global batch size
-        microbatch=-1,                   # Micro-batch size for gradient accumulation
         ema_rate="0.999",                # Exponential moving average rate
         log_interval=100,                # Steps between logging to console
         save_interval=10000,             # Steps between saving checkpoints
@@ -107,7 +104,6 @@ def create_argparser():
         use_fp16=False,                  # Enable mixed-precision training
         fp16_scale_growth=1e-3,          # Scaling factor growth for mixed precision
         depth_size=32,                   # Patch depth dimension
-        width_size=320,                  # Patch lateral dimension
         wellcond_drop=0.05,              # Drop probability for well constraints
         refcond_drop=0.05,               # Drop probability for structural constraints
         use_wellguide=False,             # Toggle custom well-guiding module

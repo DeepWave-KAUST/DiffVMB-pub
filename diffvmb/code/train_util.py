@@ -48,7 +48,6 @@ class TrainLoop:
         diffusion,
         data,
         batch_size,
-        microbatch,
         lr,
         ema_rate,
         log_interval,
@@ -68,7 +67,6 @@ class TrainLoop:
         self.diffusion = diffusion
         self.data = data
         self.batch_size = batch_size
-        self.microbatch = microbatch if microbatch > 0 else batch_size
         self.lr = lr
         # Allow multiple EMA rates
         self.ema_rate = (
@@ -301,7 +299,7 @@ class TrainLoop:
         """
         if not self.lr_anneal_steps:
             return
-        frac_done = (self.step + self.resume_step) / self.lr_anneal_steps
+        frac_done = 0.5 * (self.step + self.resume_step) / self.lr_anneal_steps
         lr = self.lr * (1 - frac_done)
         for param_group in self.opt.param_groups:
             param_group["lr"] = lr

@@ -35,7 +35,7 @@ def model_and_diffusion_defaults():
         class_cond=False,
         diffusion_steps=1000,
         noise_schedule="cosine",
-        timestep_respacing="ddim10",
+        timestep_respacing="",
         use_kl=False,
         predict_xstart=True,
         rescale_timesteps=True,
