@@ -3,11 +3,11 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "project-name-here"
+name = "DiffVMB"
 authors = [
-    {name = "Full Name", email = "first.lastname@kaust.edu.sa"},
+    {name = "Shijun Cheng", email = "shijun.cheng@kaust.edu.sa"},
 ]
-description = "Short description here"
+description = "Reproducible material for: A foundation seismic velocity model builder: Integrating shallow-to-deep propagation priors via generative diffusion model"
 readme = "README.md"
 requires-python = ">=3.8"
 keywords = ["inverse problems", "seismic"]
