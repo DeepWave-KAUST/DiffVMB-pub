@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "DiffVMB"
 authors = [
-    {name = "Shijun Cheng", email = "shijun.cheng@kaust.edu.sa"},
+    {name = "Shijun Cheng", email = "sjcheng.academic@gmail.com"},
 ]
-description = "Reproducible material for: A foundation seismic velocity model builder: Integrating shallow-to-deep propagation priors via generative diffusion model"
+description = "Reproducible material for: Shallow-to-deep velocity model building via diffusion models"
 readme = "README.md"
 requires-python = ">=3.8"
-keywords = ["inverse problems", "seismic"]
+keywords = ["velocity model building", "seismic", "diffusion models"]
 license = {text = "BSD 3-Clause License"}
 classifiers = [
         "Intended Audience :: Science/Research",
