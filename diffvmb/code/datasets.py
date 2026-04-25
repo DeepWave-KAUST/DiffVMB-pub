@@ -75,7 +75,7 @@ def _list_image_files_recursively(data_dir):
 
 # ─── Normalization / Denormalization Utilities ────────────────────────────────
 
-def normalizer_vel(x, dmin=1000, dmax=5000):
+def normalizer_vel(x, dmin=1400, dmax=5000):
     """
     Linearly map P-wave velocity from [dmin, dmax] m/s to [-1, 1].
     Default range covers typical crustal velocities (1000–5000 m/s).
@@ -83,7 +83,7 @@ def normalizer_vel(x, dmin=1000, dmax=5000):
     return 2.0 * (x - dmin) / (dmax - dmin) - 1.0
 
 
-def denormalizer_vel(x, dmin=1000, dmax=5000):
+def denormalizer_vel(x, dmin=1400, dmax=5000):
     """
     Inverse of normalizer_vel: map normalized values in [-1, 1] back to
     physical velocity in m/s.

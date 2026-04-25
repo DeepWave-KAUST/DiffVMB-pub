@@ -39,7 +39,6 @@ def main():
     # Instantiate the neural network and diffusion scheduler
     model, diffusion = create_model_and_diffusion(
         **params,
-        use_wellguide=args.use_wellguide,  # enable custom well-guiding conditioning
     )
 
     # Load pretrained weights if provided
@@ -106,7 +105,6 @@ def create_argparser():
         depth_size=32,                   # Patch depth dimension
         wellcond_drop=0.05,              # Drop probability for well constraints
         refcond_drop=0.05,               # Drop probability for structural constraints
-        use_wellguide=False,             # Toggle custom well-guiding module
     )
     # Append model-specific defaults (e.g., architecture, diffusion steps)
     defaults.update(model_and_diffusion_defaults())

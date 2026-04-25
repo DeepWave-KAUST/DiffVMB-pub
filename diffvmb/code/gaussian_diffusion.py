@@ -122,13 +122,11 @@ class GaussianDiffusion:
         model_var_type,
         loss_type,
         rescale_timesteps=False,
-        use_wellguide=True,
     ):
         self.model_mean_type = model_mean_type
         self.model_var_type = model_var_type
         self.loss_type = loss_type
         self.rescale_timesteps = rescale_timesteps
-        self.use_wellguide = use_wellguide
 
         # Use float64 for accuracy.
         betas = np.array(betas, dtype=np.float64)
@@ -404,7 +402,7 @@ class GaussianDiffusion:
         out = self.p_mean_variance(
             model,
             x,
-            cond_top, struc, well, well_loc, well_loc_index,
+            cond_top, struc, well, well_loc, 
             t,
             clip_denoised=clip_denoised,
             denoised_fn=denoised_fn,

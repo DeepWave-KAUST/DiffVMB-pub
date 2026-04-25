@@ -13,7 +13,6 @@ from .unet import UNetModel
 # Number of classes for class-conditional models (unused for unconditional)
 NUM_CLASSES = 1000
 
-
 def model_and_diffusion_defaults():
     """
     Return the default configuration dict for model and diffusion hyperparameters.
@@ -21,29 +20,32 @@ def model_and_diffusion_defaults():
     diffusion steps, and related flags.
     """
     return dict(
-        in_channels=1,
-        num_channels=64,
-        out_channels=1,
-        channel_mult=(1, 2, 4, 8, 16),
-        num_res_blocks=2,
-        num_heads=4,
-        num_heads_upsample=-1,
-        attention_resolutions=(8,16),
-        dropout=0.0,
-        learn_sigma=False,
-        sigma_small=False,
-        class_cond=False,
-        diffusion_steps=1000,
-        noise_schedule="cosine",
-        timestep_respacing="",
-        use_kl=False,
-        predict_xstart=True,
-        rescale_timesteps=True,
-        rescale_learned_sigmas=False,
-        use_checkpoint=False,
-        use_scale_shift_norm=True,
+        in_channels=1,                        # number of input channels (1 for single-component velocity)
+        num_channels=64,                      # base channel width of the U-Net
+        out_channels=1,                       # number of output channels (matches in_channels when learn_sigma=False)
+        channel_mult=(1, 2, 4, 8, 16),        # per-resolution channel multipliers for the U-Net encoder/decoder
+        num_res_blocks=2,                     # number of residual blocks per resolution level
+        num_heads=4,                          # number of attention heads in each multi-head self-attention layer
+        num_heads_upsample=-1,                # attention heads in the decoder; -1 inherits num_heads
+        attention_resolutions=(8, 16),        # spatial resolutions (in samples) at which self-attention is applied
+        dropout=0.0,                          # dropout probability; 0.0 disables dropout
+        learn_sigma=False,                    # if True, the network also predicts the diffusion variance
+        sigma_small=False,                    # if True, use the smaller fixed variance schedule (β̃_t instead of β_t)
+        class_cond=False,                     # if True, condition the model on class labels
+        diffusion_steps=1000,                 # total number of forward diffusion timesteps T
+        noise_schedule="cosine",              # beta schedule type: "cosine" or "linear"
+        timestep_respacing="",                # timestep respacing string:
+                                              #   - set to "" during training (no respacing, all T steps used)
+                                              #   - set to "ddim{N}" during DDIM inference, where N is the
+                                              #     number of denoising steps after respacing (e.g. "ddim10"
+                                              #     for 10 steps); also used as the output sub-folder name
+        use_kl=False,                         # if True, optimize the variational lower-bound (KL loss) instead of MSE
+        predict_xstart=True,                  # if True, the network predicts x_0 directly; otherwise predicts noise ε
+        rescale_timesteps=True,               # if True, rescale integer timestep indices to [0, 1000] range
+        rescale_learned_sigmas=False,         # if True, apply rescaling to the learned sigma outputs
+        use_checkpoint=False,                 # if True, use gradient checkpointing to reduce GPU memory usage
+        use_scale_shift_norm=True,            # if True, use AdaGN (scale-and-shift group norm) for time conditioning
     )
-
 
 def create_model_and_diffusion(
     class_cond,
@@ -67,7 +69,6 @@ def create_model_and_diffusion(
     rescale_learned_sigmas,
     use_checkpoint,
     use_scale_shift_norm,
-    use_wellguide,
 ):
     """
     Instantiate the UNetModel and the corresponding SpacedDiffusion process.
@@ -100,7 +101,6 @@ def create_model_and_diffusion(
         rescale_timesteps=rescale_timesteps,
         rescale_learned_sigmas=rescale_learned_sigmas,
         timestep_respacing=timestep_respacing,
-        use_wellguide=use_wellguide,
     )
     return model, diffusion
 
@@ -150,7 +150,6 @@ def create_gaussian_diffusion(
     rescale_timesteps=False,
     rescale_learned_sigmas=False,
     timestep_respacing="",
-    use_wellguide=False,
 ):
     """
     Configure and return a SpacedDiffusion instance based on provided schedules.
@@ -186,7 +185,6 @@ def create_gaussian_diffusion(
         ),
         loss_type=loss_type,
         rescale_timesteps=rescale_timesteps,
-        use_wellguide=use_wellguide,
     )
 
 
