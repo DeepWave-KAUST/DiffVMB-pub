@@ -74,5 +74,5 @@ configurations may be required for different combinations of workstation and GPU
 This implementation is motivated from the paper [Improved Denoising Diffusion Probabilistic Models](https://arxiv.org/pdf/2102.09672) and the code adapted from their [repository](https://github.com/openai/improved-diffusion). We are grateful for their open source code.
 
 ## Cite us 
-DW0100 - Cheng et al. (2025) Shallow-to-deep velocity model building via diffusion models.
+Cheng et al. (2026) Shallow-to-deep velocity model building via diffusion models.
 
