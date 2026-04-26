@@ -201,9 +201,8 @@ class BasicDataset(Dataset):
         path = self.local_dataset[idx]
 
         # ── Load raw data ──────────────────────────────────────────────────
-        # data  = np.load(path)
-        data  = sio.loadmat(path)
-        vp    = data['acc_vp']    # true P-wave velocity model, shape (nz, nx)
+        data  = np.load(path)
+        vp    = data['vp']    # true P-wave velocity model, shape (nz, nx)
         struc = data['mig']   # migration-derived structural image, shape (nz, nx);
                                # replaces the idealized reflectivity used in Part I
 
