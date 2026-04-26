@@ -30,10 +30,6 @@ from .resample import LossAwareSampler, UniformSampler
 # Initial loss scaling for mixed-precision training
 INITIAL_LOG_LOSS_SCALE = 20.0
 
-# Directory for saving checkpoints
-dir_checkpoints = './checkpoints/'  
-os.makedirs(dir_checkpoints, exist_ok=True)
-
 class TrainLoop:
     """
     Core training loop for diffusion model.
@@ -53,6 +49,7 @@ class TrainLoop:
         log_interval,
         save_interval,
         resume_checkpoint,
+        dir_cp,
         use_fp16=False,
         fp16_scale_growth=1e-3,
         schedule_sampler=None,
@@ -76,6 +73,7 @@ class TrainLoop:
         self.log_interval = log_interval
         self.save_interval = save_interval
         self.resume_checkpoint = resume_checkpoint
+        self.dir_cp = dir_cp
         self.use_fp16 = use_fp16
         self.fp16_scale_growth = fp16_scale_growth
         # Sampler for selecting diffusion timesteps
@@ -323,7 +321,7 @@ class TrainLoop:
             filename = (f"ema_{rate}_{(self.step+self.resume_step):06d}.pt"
                         if rate else
                         f"model{(self.step+self.resume_step):06d}.pt")
-            with bf.BlobFile(bf.join(dir_checkpoints, filename), "wb") as f:
+            with bf.BlobFile(bf.join(self.dir_cp, filename), "wb") as f:
                 th.save(state_dict, f)
 
         for rate, params in zip(self.ema_rate, self.ema_params):

@@ -5,20 +5,23 @@ import scipy.io as sio
 import random
 import torch
 from scipy.signal import convolve
-from scipy.io import loadmat
+from scipy.ndimage import gaussian_filter
 
 
 def load_data(
-    *, data_dir, batch_size, depth_size, device, class_cond=False, deterministic=False
+    *, data_dir, batch_size, depth_size, vmax, vmin, device, class_cond=False, deterministic=False
 ):
     """
     Create an infinite generator over (velocity_model, conditioning_info, ...) batches.
 
     Each batch yields a tuple of tensors used for depth-progressive seismic
-    velocity model building:
-        - vp_bottom:    target velocity patch at a deeper depth window
+    velocity model building (Part II: realistic field-data constraints):
+        - vp_bottom:    target velocity patch at the deeper depth window
         - cond_top:     3-channel conditioning input (vp_top, depth_top, depth_bottom)
-        - struc_bottom: reflectivity (structure) at the bottom window
+        - inivp_bottom: background velocity patch derived from a smoothed migration
+                        velocity model, providing a low-wavenumber starting point
+        - struc_bottom: migration-derived structural image at the bottom window,
+                        replacing the idealized reflectivity used in Part I
         - well:         sparse well-log velocity constraint at the bottom window
         - well_loc:     normalized horizontal position of the well
         - out_dict:     optional auxiliary dict (e.g. class labels)
@@ -26,7 +29,12 @@ def load_data(
     :param data_dir:      root directory containing .mat / .npz / .npy files
     :param batch_size:    number of samples per batch
     :param depth_size:    number of depth samples in each extracted window
-    :param width_size:    number of lateral samples (currently unused here; passed for API consistency)
+    :param vmax:          maximum P-wave velocity (m/s) used for normalization;
+                          should be set to the upper bound of the training
+                          velocity distribution (e.g. 5000 m/s)
+    :param vmin:          minimum P-wave velocity (m/s) used for normalization;
+                          should be set to the lower bound of the training
+                          velocity distribution (e.g. 1400 m/s)
     :param device:        torch device (unused directly; kept for API compatibility)
     :param class_cond:    if True, include class-label tensors in out_dict
     :param deterministic: if True, disable shuffle for reproducible ordering
@@ -38,8 +46,10 @@ def load_data(
     all_files = _list_image_files_recursively(data_dir)
 
     dataset = BasicDataset(
-        data_dir,           # NOTE: passes the directory path, not the file list;
-        depth_size,         #       BasicDataset re-scans internally (see its __init__)
+        data_dir,
+        depth_size,
+        vmax,
+        vmin,
         class_cond=class_cond,
     )
 
@@ -68,22 +78,20 @@ def _list_image_files_recursively(data_dir):
         if "." in entry and ext.lower() in ["mat", "npz", "npy"]:
             results.append(full_path)
         elif bf.isdir(full_path):
-            # Recurse into sub-directories
             results.extend(_list_image_files_recursively(full_path))
     return results
 
 
 # ─── Normalization / Denormalization Utilities ────────────────────────────────
 
-def normalizer_vel(x, dmin=1400, dmax=5000):
+def normalizer_vel(x, dmin=1500, dmax=4500):
     """
     Linearly map P-wave velocity from [dmin, dmax] m/s to [-1, 1].
-    Default range covers typical crustal velocities (1000–5000 m/s).
     """
     return 2.0 * (x - dmin) / (dmax - dmin) - 1.0
 
 
-def denormalizer_vel(x, dmin=1400, dmax=5000):
+def denormalizer_vel(x, dmin=1500, dmax=4500):
     """
     Inverse of normalizer_vel: map normalized values in [-1, 1] back to
     physical velocity in m/s.
@@ -120,7 +128,7 @@ def ricker_wavelet(frequency, nt, dt):
     :return:          1-D numpy array of length nt, centered at t=0
     """
     t = (nt - 1) * dt
-    t_shifted = np.linspace(-t / 2, t / 2, nt)   # symmetric time axis
+    t_shifted = np.linspace(-t / 2, t / 2, nt)
     pi_square = np.pi ** 2
     wavelet = (
         (1.0 - 2.0 * pi_square * (frequency ** 2) * (t_shifted ** 2))
@@ -142,7 +150,6 @@ def convolve_wavelet(nz_exp, nx_exp, ref, wavelet):
     """
     seis = np.zeros([nz_exp, nx_exp])
     for i in range(nx_exp):
-        # 'same' mode preserves the original trace length
         seis[:, i] = convolve(ref[:, i], wavelet, mode='same')
     return seis
 
@@ -151,26 +158,41 @@ def convolve_wavelet(nz_exp, nx_exp, ref, wavelet):
 
 class BasicDataset(Dataset):
     """
-    PyTorch Dataset for depth-progressive velocity model building.
+    PyTorch Dataset for depth-progressive velocity model building (Part II).
+
+    Compared with Part I, two additional realistic constraints are introduced:
+
+    1. Migration-derived structural image ('mig'): replaces the idealized
+       reflectivity computed from the true velocity. In practice this image
+       is obtained by applying reverse-time migration (RTM) or another
+       migration algorithm with a smooth migration velocity model, so it
+       captures structural geometry without requiring knowledge of the true
+       velocity.
+
+    2. Background velocity model ('inivp'): a heavily smoothed version of the
+       true velocity, simulating the migration velocity model used as a
+       low-wavenumber starting point. During training the smoothing kernel
+       width is randomized (sigma in [18, 22] samples) to improve robustness
+       to imperfect migration velocities encountered in practice.
 
     Each sample randomly selects:
       - a 'top' depth window  (shallow, known/observed region)
       - a 'bottom' depth window (deeper, target region to predict)
-    and returns the corresponding velocity patches, reflectivity, well
-    constraint, and depth-position encodings.
+    and returns the velocity patches, migration-derived structural image,
+    background velocity, well constraint, and depth-position encodings.
 
-    Expected file format: .npz with keys 'vp' (velocity, shape [nz, nx])
-    and 'ref' (reflectivity, same shape).
+    Expected file format: .npz with keys:
+      'vp'  -- true P-wave velocity,          shape (nz, nx)
+      'mig' -- migration-derived structural image, shape (nz, nx)
     """
 
-    def __init__(self, paths, depth_size, class_cond=False):
-        # NOTE: 'paths' here receives the data_dir string from load_data(),
-        #       not a pre-built file list. The dataset re-scans via
-        #       _list_image_files_recursively internally.
+    def __init__(self, paths, depth_size, vmax, vmin, class_cond=False):
         super().__init__()
         self.local_dataset = _list_image_files_recursively(paths)
         self.class_cond = class_cond
         self.depth_size = depth_size   # height of each extracted window (in samples)
+        self.vmax = vmax               # upper velocity bound (m/s) for normalization
+        self.vmin = vmin               # lower velocity bound (m/s) for normalization
 
     def __len__(self):
         return len(self.local_dataset)
@@ -179,97 +201,107 @@ class BasicDataset(Dataset):
         path = self.local_dataset[idx]
 
         # ── Load raw data ──────────────────────────────────────────────────
-        data = np.load(path)
-        vp  = data['vp']    # P-wave velocity model, shape (nz, nx)
-        ref = data['ref']   # reflectivity section,  shape (nz, nx)
+        # data  = np.load(path)
+        data  = sio.loadmat(path)
+        vp    = data['acc_vp']    # true P-wave velocity model, shape (nz, nx)
+        struc = data['mig']   # migration-derived structural image, shape (nz, nx);
+                               # replaces the idealized reflectivity used in Part I
+
+        # Simulate the migration velocity model by applying a Gaussian smooth
+        # to the true velocity. The randomized sigma (18–22 samples) mimics
+        # the uncertainty in real migration velocity estimation.
+        inivp = gaussian_filter(vp.copy(), sigma=random.randint(18, 22))
         nz, nx = vp.shape
 
         # ── Random lateral flip (data augmentation) ────────────────────────
-        # Mirrors the model left-right with 50% probability to improve
-        # generalization to laterally varying structures.
+        # Mirrors the model left-right with 50% probability; applied
+        # consistently to all three arrays to preserve their correspondence.
         if random.uniform(0, 1) >= 0.5:
-            vp  = np.fliplr(vp)
-            ref = np.fliplr(ref)
+            vp    = np.fliplr(vp)
+            inivp = np.fliplr(inivp)
+            struc = np.fliplr(struc)
 
-        # ── Normalize velocity to [-1, 1] ──────────────────────────────────
-        vp = normalizer_vel(vp)
+        # ── Normalize velocities to [-1, 1] ───────────────────────────────
+        vp    = normalizer_vel(vp,    dmin=self.vmin, dmax=self.vmax)
+        inivp = normalizer_vel(inivp, dmin=self.vmin, dmax=self.vmax)
 
         # ── Sample the top and bottom depth windows ────────────────────────
-        # depth_top: the deepest row of the 'top' (shallow) window.
-        # Constrained to ensure the top window fits above and the bottom
-        # window fits within the model extent.
+        # depth_top: deepest row of the 'top' (shallow) window.
         depth_top = random.randint(
-            self.depth_size - 1,             # minimum: window starts at row 0
-            nz - self.depth_size // 2 - 1   # maximum: leaves room for bottom window
+            self.depth_size - 1,
+            nz - self.depth_size // 2 - 1
         )
-
-        # depth_gap: vertical separation between the two windows (random overlap allowed)
         depth_gap = min(
-            nz - depth_top - 1,                              # don't exceed model bottom
+            nz - depth_top - 1,
             random.randint(self.depth_size // 2, self.depth_size)
         )
         depth_bottom = depth_top + depth_gap  # deepest row of the 'bottom' window
 
         # ── Extract velocity patches ───────────────────────────────────────
-        # Top window:    acts as the known/shallow conditioning input
-        vp_top    = vp[depth_top  - self.depth_size + 1 : depth_top    + 1]   # (depth_size, nx)
-        # Bottom window: the target to be predicted
-        vp_bottom = vp[depth_bottom - self.depth_size + 1 : depth_bottom + 1] # (depth_size, nx)
-        # Reflectivity at the bottom window (structural constraint)
-        ref_bottom = ref[depth_bottom - self.depth_size + 1 : depth_bottom + 1]
+        # Top window: shallow velocity context from the previous diffusion step
+        vp_top    = vp[depth_top - self.depth_size + 1 : depth_top + 1]           # (depth_size, nx)
+        # Bottom window: target to be predicted by the diffusion model
+        vp_bottom = vp[depth_bottom - self.depth_size + 1 : depth_bottom + 1]     # (depth_size, nx)
+        # Background velocity at the bottom window (smoothed migration velocity)
+        inivp_bottom = inivp[depth_bottom - self.depth_size : depth_bottom]       # (depth_size, nx)
+        # Migration-derived structural image at the bottom window
+        struc_bottom = struc[depth_bottom - self.depth_size + 1 : depth_bottom + 1]  # (depth_size, nx)
 
-        # ── Well-log conditioning (Option 1: sparse column mask) ───────────
+        # ── Well-log conditioning (sparse column mask) ─────────────────────
         # Simulate a single borehole at a random lateral position.
-        # The well 'sees' the true velocity only along its column; all
-        # other columns remain zero.
+        # Only the borehole column retains the true velocity; all other
+        # columns are set to zero.
         well_loc = random.randint(0, nx - 1)
         mask = np.zeros_like(vp_bottom)
         mask[:, well_loc] = 1
-        well = vp_bottom * mask    # shape (depth_size, nx), non-zero only at well_loc
+        well = vp_bottom * mask    # (depth_size, nx), non-zero only at well_loc
 
         # Option 2 (alternative, currently commented out):
-        # Flatten the well into a repeated 2-D array so every trace
-        # receives the same 1-D velocity profile.
+        # Broadcast the single borehole trace to all lateral positions.
         # well = vp_bottom[:, well_loc]
         # well = np.repeat(well[:, np.newaxis], nx, axis=1)
 
         # ── Build 2-D depth-position encodings ────────────────────────────
-        # Each pixel in the patch is labeled with its absolute depth index
-        # so the network can reason about spatial position.
-        depth_top_idx    = np.arange(depth_top    - self.depth_size + 1, depth_top    + 1)  # (depth_size,)
-        depth_bottom_idx = np.arange(depth_bottom - self.depth_size + 1, depth_bottom + 1)  # (depth_size,)
+        # Label each pixel with its absolute depth index so the network can
+        # reason about its spatial position within the full velocity model.
+        depth_top_idx    = np.arange(depth_top    - self.depth_size + 1, depth_top    + 1)
+        depth_bottom_idx = np.arange(depth_bottom - self.depth_size + 1, depth_bottom + 1)
 
-        # Tile along the lateral axis to produce 2-D maps of shape (depth_size, nx)
+        # Tile to 2-D maps of shape (depth_size, nx)
         depth_top_idx    = np.tile(depth_top_idx[:, np.newaxis],    (1, nx))
         depth_bottom_idx = np.tile(depth_bottom_idx[:, np.newaxis], (1, nx))
 
-        # Normalize depth indices to [-1, 1] using the full model height
+        # Normalize depth indices to [-1, 1]
         depth_top_idx    = normalizer_depth(depth_top_idx,    dmax=nz)
         depth_bottom_idx = normalizer_depth(depth_bottom_idx, dmax=nz)
 
         # Normalize the well's lateral position to a scalar in [-1, 1]
         well_loc = normalizer_well_loc(well_loc, dmax=nx)
-        well_loc = np.expand_dims(np.array(well_loc, dtype=np.float32), axis=0)  # shape (1,)
+        well_loc = np.expand_dims(np.array(well_loc, dtype=np.float32), axis=0)  # (1,)
 
         # ── Pack tensors ───────────────────────────────────────────────────
-        # Target: single-channel velocity patch at the bottom depth window
+        # Target: single-channel true velocity patch at the bottom window
         vp_bottom = np.expand_dims(np.array(vp_bottom, dtype=np.float32), axis=0)  # (1, D, W)
 
-        # Conditioning input for the diffusion model:
-        #   ch 0 – vp_top:          shallow velocity context
-        #   ch 1 – depth_top_idx:   absolute depth of the top window rows
-        #   ch 2 – depth_bottom_idx: absolute depth of the bottom window rows
+        # Conditioning input for the diffusion model — 3 channels:
+        #   ch 0 – vp_top:           shallow velocity context (previous window output)
+        #   ch 1 – depth_top_idx:    absolute depth encoding of the top window rows
+        #   ch 2 – depth_bottom_idx: absolute depth encoding of the bottom window rows
         cond_top = np.array(
             np.stack([vp_top, depth_top_idx, depth_bottom_idx], axis=0),
             dtype=np.float32
-        )  # shape (3, D, W)
+        )  # (3, D, W)
 
-        # Single-channel reflectivity at the bottom window (structural guidance)
-        struc_bottom = np.expand_dims(np.array(ref_bottom, dtype=np.float32), axis=0)  # (1, D, W)
+        # Single-channel background velocity from the smoothed migration velocity model
+        inivp_bottom = np.expand_dims(np.array(inivp_bottom, dtype=np.float32), axis=0)  # (1, D, W)
 
-        # Single-channel sparse well constraint (zeros everywhere except the borehole)
+        # Single-channel migration-derived structural image (replaces idealized
+        # reflectivity from Part I)
+        struc_bottom = np.expand_dims(np.array(struc_bottom, dtype=np.float32), axis=0)  # (1, D, W)
+
+        # Single-channel sparse well constraint (non-zero only at the borehole column)
         well = np.expand_dims(np.array(well, dtype=np.float32), axis=0)  # (1, D, W)
 
         out_dict = {}   # placeholder for optional class-conditioning labels
 
-        return vp_bottom, cond_top, struc_bottom, well, well_loc, out_dict
+        return vp_bottom, cond_top, inivp_bottom, struc_bottom, well, well_loc, out_dict
