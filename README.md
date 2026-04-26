@@ -38,13 +38,15 @@ The training/test datasets and pre-trained model weights for both parts of the m
 
 Download and extract `dataset.zip` into the `dataset/` folder. After extraction, the structure is:
 
+```
 dataset/
 ├── part1/
 │   ├── train/          # Training data for Part I (NPZ format)
 │   └── test/           # Test data for Part I (MAT format)
 └── part2/
-├── train/          # Training data for Part II (NPZ format)
-└── test/           # Test data for Part II (MAT format)
+    ├── train/          # Training data for Part II (NPZ format)
+    └── test/           # Test data for Part II (MAT format)
+```
 
 - **Training data** (`.npz`): each file contains two arrays — `vp` (P-wave velocity model) and `ref` (Part I) or `mig` (Part II) — representing 2-D cross-sections extracted from industrial 3-D velocity models.
 - **Test data** (`.mat`): benchmark velocity models including in-distribution models (SEAM Arid, SEG/EAGE, Overthrust for Part I; Syn for Part II) and an out-of-distribution model (Marmousi) to assess generalization.
@@ -56,9 +58,11 @@ dataset/
 
 Download and extract `trained_model.zip` into the `trained_model/` folder. After extraction, the structure is:
 
+```
 trained_model/
 ├── model_part1.pt      # Pre-trained model for Part I
 └── model_part2.pt      # Pre-trained model for Part II
+```
 
 Both models are trained using a depth-progressive conditional diffusion framework built upon the IDDPM architecture, extended with custom multi-condition inputs including shallow velocity context, depth positional encoding, well-log constraints, and structural constraints.
 
