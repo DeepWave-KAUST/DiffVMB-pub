@@ -12,21 +12,39 @@
 
 </div>
 
-# Project structure
+## Project structure
+
 This repository is organized as follows:
 
-* :open_file_folder: **diffvmb**: python library containing all codes;
+* :open_file_folder: **diffvmb_part1**: code for Part I of the manuscript;
+  * :open_file_folder: **code**: python library containing model, diffusion, and dataset utilities;
+  * :page_facing_up: **train_part1.py**: training script for Part I;
+  * :page_facing_up: **sample_part1.py**: sampling/inference script for Part I;
+* :open_file_folder: **diffvmb_part2**: code for Part II of the manuscript;
+  * :open_file_folder: **code**: python library containing model, diffusion, and dataset utilities;
+  * :page_facing_up: **train_part2.py**: training script for Part II;
+  * :page_facing_up: **sample_part2.py**: sampling/inference script for Part II;
+* :open_file_folder: **dataset**: empty folder, to be filled with the downloaded dataset (see Supplementary files);
+* :open_file_folder: **trained_model**: empty folder, to be filled with the downloaded model weights (see Supplementary files);
 * :open_file_folder: **logo**: folder containing logo;
-* :open_file_folder: **dataset**: folder to store dataset;
 
 ## Supplementary files
-To ensure reproducibility, we provide the the data set for training and inference stages and our trainined diffusion model for GSFM.
 
-* **Dataset**:
-Download the training and testing data set [here](https://kaust.sharepoint.com/:u:/r/sites/M365_Deepwave_Documents/Shared%20Documents/Restricted%20Area/REPORTS/DW0100/dataset.zip?csf=1&web=1&e=7mO9tu). Then, use `unzip` to extract the contents.
+The training/test datasets and pre-trained model weights for both parts of the manuscript are publicly available on Zenodo:
 
-* **Trained model**:
-Download our trained diffusion model [here](https://kaust.sharepoint.com/:u:/r/sites/M365_Deepwave_Documents/Shared%20Documents/Restricted%20Area/REPORTS/DW0100/trained_model.zip?csf=1&web=1&e=48l4Yz). Then, use `unzip` to extract the contents.
+> **DOI: [10.5281/zenodo.19790506](https://doi.org/10.5281/zenodo.19790506)**
+
+### Dataset (`dataset.zip`)
+
+Download and extract `dataset.zip` into the `dataset/` folder. After extraction, the structure is:
+
+dataset/
+├── part1/
+│   ├── train/          # Training data for Part I (NPZ format)
+│   └── test/           # Test data for Part I (MAT format)
+└── part2/
+├── train/          # Training data for Part II (NPZ format)
+└── test/           # Test data for Part II (MAT format)
 
 ## Getting started :space_invader: :robot:
 To ensure reproducibility of the results, we suggest using the `environment.yml` file when creating an environment.
