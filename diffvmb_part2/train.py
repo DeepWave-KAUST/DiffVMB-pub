@@ -133,7 +133,7 @@ def create_argparser():
     """
     # Default hyperparameters and paths
     defaults = dict(
-        data_dir="../dataset/part1/train/",    # Path to training data
+        data_dir="../dataset/part2/train/",    # Path to training data
         schedule_sampler="uniform",      # Type of timestep sampler (uniform or loss-aware)
         lr=1e-4,                         # Learning rate
         weight_decay=0.0,                # Weight decay for optimizer
